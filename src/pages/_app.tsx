@@ -8,6 +8,10 @@ import '../../styles/global.scss';
 
 import createEmotionCache from '@/utils/createEmotionCache';
 import theme from '@/utils/muiTheme';
+import withGlobalContext, { WithGlobalContextContextData } from '@/contexts/withGlobalContext';
+import { useRouter } from 'next/router';
+import { useEffect } from 'react';
+import { clientServerDetector } from '@/services/clientServerDetector';
 
 // Client-side cache, shared for the whole session of the user in the browser.
 const clientSideEmotionCache = createEmotionCache();
@@ -16,8 +20,32 @@ interface MyAppProps extends AppProps {
   emotionCache?: EmotionCache;
 }
 
-export default function MyApp(props: MyAppProps) {
+type Props = WithGlobalContextContextData<MyAppProps>
+
+const clearApp = async () => {
+  await localStorage.removeItem('token');
+};
+
+const MyApp = (props: Props) => {
   const { Component, emotionCache = clientSideEmotionCache, pageProps } = props;
+  const router = useRouter();
+  const { globalContextState } = props;
+  const { isAuth } = globalContextState;
+  const token = clientServerDetector().isClient() && localStorage.getItem('token')
+
+  useEffect(() => {
+    if (!token) {
+      router.push('/LogIn');
+      return;
+    }
+
+    router.push('/home');
+
+    return () => {
+      clearApp().then(() => console.log('token has been deleted'));
+    };
+  }, [isAuth]);
+
   return (
     <CacheProvider value={emotionCache}>
       <Head>
@@ -30,4 +58,6 @@ export default function MyApp(props: MyAppProps) {
       </ThemeProvider>
     </CacheProvider>
   );
-}
+};
+
+export default withGlobalContext(MyApp);
